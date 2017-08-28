@@ -41,8 +41,8 @@ class NI_USB_6343Tab(DeviceTab):
     def initialise_GUI(self):
         # Capabilities
         num_AO = 4
-        num = {'AO':4, 'DO':32, 'PFI':16}
-        
+        num = {'AO':4, 'DO':32, 'PFI':16, 'AI':4}
+
         base_units = {'AO':'V'}
         base_min = {'AO':-10.0}
         base_max = {'AO':10.0}
@@ -66,13 +66,17 @@ class NI_USB_6343Tab(DeviceTab):
         pfi_prop = {}
         for i in range(num['PFI']):
             pfi_prop['PFI %d'%i] = {}
-        
-        
-        # Create the output objects    
-        self.create_analog_outputs(ao_prop)        
+
+        ai_prop = {}
+        for i in range(num['AI']):
+            ai_prop['ai%d'%i] = {}
+
+        # Create the output objects
+        self.create_analog_outputs(ao_prop)
+        self.create_analog_inputs(ai_prop)
         # Create widgets for analog outputs only
-        dds_widgets,ao_widgets,do_widgets = self.auto_create_widgets()
-        
+        dds_widgets,ao_widgets,do_widgets,ai_widgets = self.auto_create_widgets(create_analog_in = True)
+
         # now create the digital output objects
         self.create_digital_outputs(do_prop)
         self.create_digital_outputs(pfi_prop)
@@ -89,10 +93,15 @@ class NI_USB_6343Tab(DeviceTab):
             flag = channel.replace('PFI ','')
             flag = int(flag)
             return '%02d'%(flag)
-        
+
+        def ai_sort(channel):
+            flag = channel.replace('ai','')
+            flag = int(flag)
+            return '%02d'%flag
+
         # and auto place the widgets in the UI
-        self.auto_place_widgets(("Analog Outputs",ao_widgets),("Digital Outputs",do_widgets,do_sort),("PFI Outputs",pfi_widgets,pfi_sort))
-        
+        self.auto_place_widgets(("Analog Inputs",ai_widgets, ai_sort),("Analog Outputs",ao_widgets),("Digital Outputs",do_widgets,do_sort),("PFI Outputs",pfi_widgets,pfi_sort))
+
         # Store the Measurement and Automation Explorer (MAX) name
         self.MAX_name = str(self.settings['connection_table'].find_by_name(self.device_name).BLACS_connection)
         
@@ -296,11 +305,13 @@ class NI_USB_6343AcquisitionWorker(Worker):
         global zprocess; import zprocess
         global logging; import logging
         global time; import time
-        
+        global zmq; import zmq
+        global LabConfig; from labscript_utils.labconfig import LabConfig
+
         self.task_running = False
         self.daqlock = threading.Condition()
         # Channel details
-        self.channels = []
+        self.channels = [self.MAX_name+"/ai%d"%i for i in range(4)]
         self.rate = 1000.
         self.samples_per_channel = 1000
         self.ai_start_delay = 25e-9
@@ -313,7 +324,13 @@ class NI_USB_6343AcquisitionWorker(Worker):
         
         self.task = None
         self.abort = False
-        
+
+        context = zmq.Context()
+        self.socket = context.socket(zmq.PUB)
+        exp_config = LabConfig()
+        broker_sub_port = int(exp_config.get('ports', 'BLACS_Broker_Sub'))
+        self.socket.connect("tcp://127.0.0.1:%d" % broker_sub_port)
+
         # And event for knowing when the wait durations are known, so that we may use them
         # to chunk up acquisition data:
         self.wait_durations_analysed = zprocess.Event('wait_durations_analysed')
@@ -382,13 +399,8 @@ class NI_USB_6343AcquisitionWorker(Worker):
                     #    data = data.transpose()
                     #self.buffered_data = numpy.append(self.buffered_data,data,axis=0)
                 else:
-                    pass
-                    # Todo: replace this with zmq pub plus a broker somewhere so things can subscribe to channels
-                    # and get their data without caring what process it came from. For the sake of speed, this
-                    # should use the numpy buffer interface and raw zmq messages, and not the existing event system
-                    # that zprocess has.
-                    # self.result_queue.put([self.t0,self.rate,self.ai_read.value,len(self.channels),self.ai_data])
-                    # self.t0 = self.t0 + self.samples_per_channel/self.rate
+                    data = numpy.copy(self.ai_data)
+                    self.socket.send_multipart([self.device_name, data])
         except:
             message = traceback.format_exc()
             logger.error('An exception happened:\n %s'%message)
