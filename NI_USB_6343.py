@@ -399,8 +399,7 @@ class NI_USB_6343AcquisitionWorker(Worker):
                     #    data = data.transpose()
                     #self.buffered_data = numpy.append(self.buffered_data,data,axis=0)
                 else:
-                    data = numpy.copy(self.ai_data)
-                    self.socket.send_multipart([self.device_name, data])
+                    self.socket.send_multipart([self.device_name, self.ai_data])
         except:
             message = traceback.format_exc()
             logger.error('An exception happened:\n %s'%message)
