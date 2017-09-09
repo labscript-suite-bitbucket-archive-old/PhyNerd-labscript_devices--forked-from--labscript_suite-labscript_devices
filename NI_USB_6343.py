@@ -339,6 +339,8 @@ class NI_USB_6343AcquisitionWorker(Worker):
         self.daqmx_read_thread.daemon = True
         self.daqmx_read_thread.start()
 
+        self.setup_task()
+
     def shutdown(self):
         if self.task_running:
             self.stop_task()
@@ -399,7 +401,9 @@ class NI_USB_6343AcquisitionWorker(Worker):
                     #    data = data.transpose()
                     #self.buffered_data = numpy.append(self.buffered_data,data,axis=0)
                 else:
-                    self.socket.send_multipart([self.device_name, self.ai_data])
+                    channels_and_data = zip(map(lambda x: x.split("/")[1], self.channels), numpy.split(self.ai_data, len(self.channels)))
+                    for channel, data in channels_and_data:
+                        self.socket.send_multipart(["{} {}".format(self.device_name,channel), data])
         except:
             message = traceback.format_exc()
             logger.error('An exception happened:\n %s'%message)
