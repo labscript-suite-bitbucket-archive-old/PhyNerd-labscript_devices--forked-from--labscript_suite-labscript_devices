@@ -325,8 +325,8 @@ class NI_USB_6343AcquisitionWorker(Worker):
         self.task = None
         self.abort = False
 
-        context = zmq.Context()
-        self.socket = context.socket(zmq.PUB)
+        self.context = zmq.Context()
+        self.socket = self.context.socket(zmq.PUB)
         exp_config = LabConfig()
         broker_sub_port = int(exp_config.get('ports', 'BLACS_Broker_Sub'))
         self.socket.connect("tcp://127.0.0.1:%d" % broker_sub_port)
@@ -344,7 +344,9 @@ class NI_USB_6343AcquisitionWorker(Worker):
     def shutdown(self):
         if self.task_running:
             self.stop_task()
-        
+        self.socket.close()
+        self.context.term()
+
     def daqmx_read(self):
         logger = logging.getLogger('BLACS.%s_%s.acquisition.daqmxread'%(self.device_name,self.worker_name))
         logger.info('Starting')
