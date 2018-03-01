@@ -10,7 +10,12 @@
 # file in the root of the project for the full license.             #
 #                                                                   #
 #####################################################################
+from __future__ import division, unicode_literals, print_function, absolute_import
+from labscript_utils import PY2
+if PY2:
+    str = unicode
 
+from labscript_utils.numpy_dtype_workaround import dtype_workaround
 from labscript import PseudoclockDevice, Pseudoclock, ClockLine, config, LabscriptError, set_passed_properties
 from labscript_devices import runviewer_parser, BLACS_tab, BLACS_worker, labscript_device
 
@@ -102,7 +107,7 @@ class PineBlaster(PseudoclockDevice):
         if len(reduced_instructions) > self.max_instructions:
             raise LabscriptError("%s %s has too many instructions. It has %d and can only support %d"%(self.description, self.name, len(reduced_instructions), self.max_instructions))
         # Store these instructions to the h5 file:
-        dtypes = [('period',int),('reps',int)]
+        dtypes = dtype_workaround([('period',int),('reps',int)])
         pulse_program = np.zeros(len(reduced_instructions),dtype=dtypes)
         for i, instruction in enumerate(reduced_instructions):
             pulse_program[i]['period'] = instruction['period']
@@ -208,7 +213,7 @@ class PineblasterTab(DeviceTab):
         # This is a direct output, let's search for it on the internal Pseudoclock
         if parent_device_name == self.device_name:
             device = self.connection_table.find_by_name(self.device_name)
-            pseudoclock = device.child_list[device.child_list.keys()[0]] # there should always be one (and only one) child, the Pseudoclock
+            pseudoclock = device.child_list[list(device.child_list.keys())[0]] # there should always be one (and only one) child, the Pseudoclock
             clockline = None
             for child_name, child in pseudoclock.child_list.items():
                 # store a reference to the internal clockline

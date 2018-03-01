@@ -10,9 +10,14 @@
 # the project for the full license.                                 #
 #                                                                   #
 #####################################################################
+from __future__ import division, unicode_literals, print_function, absolute_import
+from labscript_utils import PY2
+if PY2:
+    str = unicode
 
 import numpy as np
 from labscript_devices import labscript_device, BLACS_tab, BLACS_worker, runviewer_parser
+from labscript_utils.numpy_dtype_workaround import dtype_workaround
 
 from labscript import Device, StaticDDS, StaticAnalogQuantity, StaticDigitalOut, config, LabscriptError, set_passed_properties
 import labscript_utils.properties
@@ -90,9 +95,9 @@ class PhaseMatrixQuickSyn(Device):
         dds.gate.expand_timeseries()
         
         dds.frequency.raw_output, dds.frequency.scale_factor = self.quantise_freq(dds.frequency.raw_output, dds)
-        static_dtypes = [('freq0', np.uint64)] + \
-                        [('gate0', np.uint16)]
-        static_table = np.zeros(1, dtype=static_dtypes)   
+        static_dtypes = dtype_workaround([('freq0', np.uint64)] + \
+-                        [('gate0', np.uint16)])
+        static_table = np.zeros(1, dtype=static_dtypes)
         static_table['freq0'].fill(1)
         static_table['freq0'] = dds.frequency.raw_output[0]
         static_table['gate0'] = dds.gate.raw_output[0]
@@ -195,7 +200,7 @@ class PhaseMatrixQuickSynTab(DeviceTab):
     @define_state(MODE_MANUAL|MODE_BUFFERED|MODE_TRANSITION_TO_BUFFERED|MODE_TRANSITION_TO_MANUAL,True,True)
     def update_lock_recovery(self):
         value = self.status_ui.lock_recovery_button.isChecked()
-        print value
+        print(value)
         yield(self.queue_work(self._primary_worker,'update_lock_recovery',value))
        
 

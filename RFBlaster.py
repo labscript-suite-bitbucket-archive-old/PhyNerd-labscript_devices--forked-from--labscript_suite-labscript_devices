@@ -10,11 +10,16 @@
 # the project for the full license.                                 #
 #                                                                   #
 #####################################################################
+from __future__ import division, unicode_literals, print_function, absolute_import
+from labscript_utils import PY2
+if PY2:
+    str = unicode
 
 import os
 from labscript import PseudoclockDevice, Pseudoclock, ClockLine, IntermediateDevice, DDS, config, startupinfo, LabscriptError, set_passed_properties
 import numpy as np
 
+from labscript_utils.numpy_dtype_workaround import dtype_workaround
 from labscript_devices import labscript_device, BLACS_tab, BLACS_worker, runviewer_parser
 
 # Define a RFBlasterPseudoclock that only accepts one child clockline
@@ -88,8 +93,8 @@ class RFBlaster(PseudoclockDevice):
         
         # Generate clock and save raw instructions to the h5 file:
         PseudoclockDevice.generate_code(self, hdf5_file)
-        dtypes = [('time',float),('amp0',float),('freq0',float),('phase0',float),('amp1',float),('freq1',float),('phase1',float)]
-        
+        dtypes = dtype_workaround([('time',float),('amp0',float),('freq0',float),('phase0',float),('amp1',float),('freq1',float),('phase1',float)])
+
         times = self.pseudoclock.times[self._clock_line]
         
         data = np.zeros(len(times),dtype=dtypes)
@@ -103,9 +108,10 @@ class RFBlaster(PseudoclockDevice):
         group.create_dataset('TABLE_DATA',compression=config.compression, data=data)
         
         # Quantise the data and save it to the h5 file:
-        quantised_dtypes = [('time',np.int64),
-                            ('amp0',np.int32), ('freq0',np.int32), ('phase0',np.int32),
-                            ('amp1',np.int32), ('freq1',np.int32), ('phase1',np.int32)]
+        quantised_dtypes = dtype_workaround([('time',np.int64),
+-                            ('amp0',np.int32), ('freq0',np.int32), ('phase0',np.int32),
+-                            ('amp1',np.int32), ('freq1',np.int32), ('phase1',np.int32)])
+
         quantised_data = np.zeros(len(times),dtype=quantised_dtypes)
         quantised_data['time'] = np.array(c.tT*1e6*data['time']+0.5)
         for dds in range(2):
@@ -171,8 +177,8 @@ class RFBlaster(PseudoclockDevice):
                                      stdout=PIPE, stderr=PIPE, cwd=rfjuice_folder,startupinfo=startupinfo)
                 stdout, stderr = compilation.communicate()
                 if compilation.returncode:
-                    print stdout
-                    raise LabscriptError('RFBlaster compilation exited with code %d\n\n'%compilation.returncode + 
+                    print(stdout)
+                    raise LabscriptError('RFBlaster compilation exited with code %d\n\n'%compilation.returncode +
                                          'Stdout was:\n %s\n'%stdout + 'Stderr was:\n%s\n'%stderr)
                 # Save the binary to the h5 file:
                 with open(temp_binary_filepath,'rb') as binary_file:
@@ -268,9 +274,9 @@ class RFBlasterTab(DeviceTab):
         # RFBlasterDirectOutputs
         if parent_device_name == self.device_name:
             device = self.connection_table.find_by_name(self.device_name)
-            pseudoclock = device.child_list[device.child_list.keys()[0]] # there should always be one (and only one) child, the Pseudoclock
-            clockline = pseudoclock.child_list[pseudoclock.child_list.keys()[0]] # there should always be one (and only one) child, the clockline
-            direct_outputs = clockline.child_list[clockline.child_list.keys()[0]] # There should only be one child of this clock line, the direct outputs
+            pseudoclock = device.child_list[list(device.child_list.keys())[0]] # there should always be one (and only one) child, the Pseudoclock
+            clockline = pseudoclock.child_list[list(pseudoclock.child_list.keys())[0]] # there should always be one (and only one) child, the clockline
+            direct_outputs = clockline.child_list[list(clockline.child_list.keys())[0]] # There should only be one child of this clock line, the direct outputs
             # look to see if the port is used by a child of the direct outputs
             return DeviceTab.get_child_from_connection_table(self, direct_outputs.name, port)
         else:
@@ -311,8 +317,8 @@ class RFBlasterTab(DeviceTab):
 @BLACS_worker
 class RFBlasterWorker(Worker):
     def init(self):
-        exec 'from multipart_form import *' in globals()
-        exec 'from numpy import *' in globals()
+        exec('from multipart_form import *', globals())
+        exec('from numpy import *', globals())
         global h5py; import labscript_utils.h5_lock, h5py
         global urllib2; import urllib2
         global re; import re

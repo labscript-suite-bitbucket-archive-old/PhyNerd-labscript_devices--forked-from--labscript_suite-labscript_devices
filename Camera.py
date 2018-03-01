@@ -10,14 +10,19 @@
 # the project for the full license.                                 #
 #                                                                   #
 #####################################################################
+from __future__ import division, unicode_literals, print_function, absolute_import
+from labscript_utils import PY2
+if PY2:
+    str = unicode
 
 try:
     from labscript_utils import check_version
 except ImportError:
     raise ImportError('Require labscript_utils > 2.1.0')
-    
+
 check_version('labscript', '2.0.1', '3')
 
+from labscript_utils.numpy_dtype_workaround import dtype_workaround
 from labscript_devices import labscript_device, BLACS_tab, BLACS_worker
 from labscript import TriggerableDevice, LabscriptError, set_passed_properties
 import numpy as np
@@ -112,7 +117,7 @@ class Camera(TriggerableDevice):
                         
     def generate_code(self, hdf5_file):
         self.do_checks()
-        table_dtypes = [('name','a256'), ('time',float), ('frametype','a256'), ('exposure_time',float)]
+        table_dtypes = dtype_workaround([('name','a256'), ('time',float), ('frametype','a256'), ('exposure_time',float)])
         data = np.array(self.exposures,dtype=table_dtypes)
 
         group = self.init_device_group(hdf5_file)
@@ -159,7 +164,7 @@ class CameraTab(DeviceTab):
         return {'host': str(self.ui.host_lineEdit.text()), 'use_zmq': self.ui.use_zmq_checkBox.isChecked()}
     
     def restore_save_data(self, save_data):
-        print 'restore save data running'
+        print('restore save data running')
         if save_data:
             host = save_data['host']
             self.ui.host_lineEdit.setText(host)
@@ -225,7 +230,7 @@ class CameraWorker(Worker):
         if not self.use_zmq:
             return self.initialise_sockets(self.host, self.port)
         else:
-            response = zprocess.zmq_get_raw(self.port, self.host, data='hello')
+            response = zprocess.zmq_get_raw(self.port, self.host, data='hello'.encode('utf-8')).decode()
             if response == 'hello':
                 return True
             else:
@@ -250,10 +255,10 @@ class CameraWorker(Worker):
         h5file = shared_drive.path_to_agnostic(h5file)
         if not self.use_zmq:
             return self.transition_to_buffered_sockets(h5file,self.host, self.port)
-        response = zprocess.zmq_get_raw(self.port, self.host, data=h5file.encode('utf-8'))
+        response = zprocess.zmq_get_raw(self.port, self.host, data=h5file.encode('utf-8')).decode()
         if response != 'ok':
             raise Exception('invalid response from server: ' + str(response))
-        response = zprocess.zmq_get_raw(self.port, self.host, timeout = 10)
+        response = zprocess.zmq_get_raw(self.port, self.host, timeout = 10).decode()
         if response != 'done':
             raise Exception('invalid response from server: ' + str(response))
         return {} # indicates final values of buffered run, we have none
@@ -276,10 +281,10 @@ class CameraWorker(Worker):
     def transition_to_manual(self):
         if not self.use_zmq:
             return self.transition_to_manual_sockets(self.host, self.port)
-        response = zprocess.zmq_get_raw(self.port, self.host, 'done')
+        response = zprocess.zmq_get_raw(self.port, self.host, 'done'.encode('utf-8')).decode()
         if response != 'ok':
             raise Exception('invalid response from server: ' + str(response))
-        response = zprocess.zmq_get_raw(self.port, self.host, timeout = 10)
+        response = zprocess.zmq_get_raw(self.port, self.host, timeout = 10).decode()
         if response != 'done':
             raise Exception('invalid response from server: ' + str(response))
         return True # indicates success
@@ -308,7 +313,7 @@ class CameraWorker(Worker):
     def abort(self):
         if not self.use_zmq:
             return self.abort_sockets(self.host, self.port)
-        response = zprocess.zmq_get_raw(self.port, self.host, 'abort')
+        response = zprocess.zmq_get_raw(self.port, self.host, 'abort'.encode('utf-8')).decode()
         if response != 'done':
             raise Exception('invalid response from server: ' + str(response))
         return True # indicates success 
