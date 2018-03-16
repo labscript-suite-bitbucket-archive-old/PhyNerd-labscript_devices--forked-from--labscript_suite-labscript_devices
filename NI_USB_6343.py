@@ -405,7 +405,7 @@ class NI_USB_6343AcquisitionWorker(Worker):
                 else:
                     channels_and_data = zip(map(lambda x: x.split("/")[1], self.channels), numpy.split(self.ai_data, len(self.channels)))
                     for channel, data in channels_and_data:
-                        self.socket.send_multipart(["{} {}".format(self.device_name,channel), data])
+                        self.socket.send_multipart(["{} {}\0".format(self.device_name,channel), data])
         except:
             message = traceback.format_exc()
             logger.error('An exception happened:\n %s'%message)
